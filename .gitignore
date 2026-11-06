@@ -1,0 +1,21 @@
+@"
+# Rust build artifacts
+/target/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+"@ | Set-Content .gitignore

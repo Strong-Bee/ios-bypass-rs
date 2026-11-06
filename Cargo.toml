@@ -1,0 +1,87 @@
+[package]
+name = "ios-bypass-rs"
+version = "0.1.0"
+edition = "2021"
+description = "iOS bypass toolkit in Rust - iCloud, Passcode, MDM, File Access"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/ios-bypass-rs"
+authors = ["Developer"]
+categories = ["embedded", "external-ffi-bindings", "os::macos-apis"]
+keywords = ["ios", "bypass", "icloud", "passcode", "mdm", "checkra1n", "checkm8", "libimobiledevice"]
+
+[dependencies]
+# FFI and unsafe utilities
+libc = "0.2"
+bitflags = "2.5"
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Cross-platform paths
+camino = "1.1"
+
+# Byte order for protocol parsing
+byteorder = "1.5"
+
+# UUID generation
+uuid = { version = "1.8", features = ["v4", "serde"] }
+
+# Hex encoding
+hex = "0.4"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Progress bars
+indicatif = "0.17"
+
+# Terminal colors
+colored = "2.1"
+
+[build-dependencies]
+cc = "1.1"
+clap_complete = "4.5"
+
+[features]
+default = ["ffi-iremovallpro", "ffi-libimobiledevice"]
+ffi-iremovallpro = []
+ffi-libimobiledevice = ["libimobiledevice-sys", "libirecovery-sys", "libplist-sys", "libusbmuxd-sys"]
+cli = []
+
+# Optional system library bindings (need system libraries installed)
+libimobiledevice-sys = []
+libirecovery-sys = []
+libplist-sys = []
+libusbmuxd-sys = []
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+debug = true
+overflow-checks = true
+
+[workspace]
+members = []
+
+# Target-specific configuration
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "libloaderapi", "handleapi", "errhandlingapi", "processthreadsapi", "winbase", "minwindef"] }
