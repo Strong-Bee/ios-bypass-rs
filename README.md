@@ -1,274 +1,157 @@
-# iOS Bypass Toolkit (ios-bypass-rs)
+# ios-bypass-rs
 
-A Rust-based toolkit for iOS device bypass operations using the checkm8 bootrom exploit (A5-A11 devices). Provides iCloud activation lock bypass, passcode bypass, MDM removal, and file system access.
+**Experimental Rust toolkit for iOS device inspection and authorized recovery research.**
 
-## Features
+`ios-bypass-rs` is a Rust codebase for exploring USB-connected iOS device communication, device metadata, recovery-state handling, backup workflows, and native-library interoperability. It is an experimental project, not an Apple product and not a production-ready repair utility.
 
-- **iCloud Bypass** - Remove iCloud activation lock on supported devices
-- **Passcode Bypass** - Bypass device passcode
-- **MDM Removal** - Remove Mobile Device Management profiles
-- **File Access** - Access file system via AFC/SSH over USB
-- **Device Management** - Detect, enumerate, and monitor iOS devices
-- **Cross-platform** - Windows (primary), Linux, macOS support
-- **Rust Safety** - Memory-safe FFI bindings with proper error handling
+> [!IMPORTANT]
+> This repository contains experimental native FFI integrations and reverse-engineering research. It is **not** an Activation Lock removal service, passcode-cracking tool, MDM circumvention utility, or a substitute for Apple's supported recovery and account-recovery processes. Do not use it to defeat device security, access another person's data, or alter a device without the owner's informed authorization.
+>
+> The current source tree includes legacy code and interfaces whose names refer to bypass operations. Their presence does not mean those operations are implemented, reliable, safe, or supported. This README intentionally documents only legitimate inspection and recovery-oriented project context.
 
-## Supported Devices
+## Project status
 
-Devices with A5-A11 chips (checkm8 vulnerable):
-- iPhone 4s through iPhone X (iPhone 10,3/10,6)
-- iPad 2 through iPad Pro (1st gen)
-- iPod touch 5th-7th gen
+<BadgePlaceholder />
+
+- **Status:** Experimental / under active development.
+- **Language:** Rust (2021 edition).
+- **Primary development environment:** Windows 10/11 x64.
+- **Other targets:** Linux and macOS conditionally referenced by the build script; they are not verified release targets.
+- **Native dependencies:** Optional or platform-specific iOS communication libraries and FFI components.
+- **Stability:** APIs and build requirements may change. No production-readiness or device-compatibility guarantee is made.
+
+## What is in the repository
+
+| Path | Purpose |
+| --- | --- |
+| `src/main.rs` | CLI application entry point |
+| `src/lib.rs` | Library modules and public exports |
+| `src/cli.rs` | Command-line parsing and command dispatch |
+| `src/device.rs` | Device metadata, connection state, and device enumeration abstractions |
+| `src/error.rs` | Shared error and result types |
+| `src/iremovalpro.rs` | Native-library FFI wrapper |
+| `src/ira1n.rs` | Native-library integration layer |
+| `src/ira1n_corrected.rs` | Experimental corrected FFI declarations |
+| `src/bypass.rs` | Legacy experimental orchestration code; not documented as a supported user workflow |
+| `src/ramdisk.rs` | Experimental ramdisk construction and cache abstractions |
+| `ffi/` | FFI-related source and declarations |
+| `libs/` | Native library/support files used by the project |
+| `build.rs` | Platform-specific native library detection and linker configuration |
+| `Cargo.toml` / `Cargo.lock` | Rust package metadata and locked dependencies |
+| `REVERSE_ENGINEERING_FINDINGS.md` | Static-analysis notes about third-party native components |
+
+The repository may contain components that are proprietary or subject to separate licenses. Review their provenance and license terms before redistribution. Do not assume that a binary in `libs/` is covered by this repository's Rust source license.
+
+## Intended safe scope
+
+The project is being organized around legitimate, owner-authorized workflows such as:
+
+- Enumerating an iOS device connected to the host.
+- Reading device identifiers and reported software/hardware metadata where the connected-device interface permits it.
+- Reporting connection and recovery-state information.
+- Supporting user-authorized backup and restore research, with clear warnings about data-loss risk.
+- Diagnosing missing host dependencies and native-library loading errors.
+- Studying Rust FFI boundaries and error handling.
+
+A feature should be treated as **experimental** until it has tests, documented prerequisites, safe failure behavior, and verification on supported hardware.
 
 ## Requirements
 
-### Windows (Primary)
-- Windows 10/11 (x64)
-- **iremovalpro.dll** - Main bypass library (from iRemoval PRO)
-- **ira1n.dll** - checkra1n-based exploit library
-- **Data.dll** - Payload data
-- **libimobiledevice stack** (in `ref/ira1n/bin/`):
-  - libimobiledevice-1.0.dll
-  - libirecovery-1.0.dll
-  - libplist-2.0.dll
-  - libusbmuxd-2.0.dll
-  - libusb-1.0.dll
-- USB connection to iOS device
-- Rust 1.75+
+### General
 
-### Linux/macOS
-- libimobiledevice, libirecovery, libplist, libusbmuxd, libusb (system packages)
-- Same native libraries if available
+- Rust toolchain with Cargo (Rust 2021 edition).
+- Git.
+- A supported host operating system and USB connection.
+- An iOS device that you own or are explicitly authorized to service.
 
-## Installation
+### Windows
 
-### From Source
+- Windows 10 or Windows 11, x64.
+- Apple device drivers / Apple Mobile Device support appropriate to the installed Apple software.
+- Any native libraries required by the selected build configuration.
+- A compatible MSVC C/C++ build toolchain may be required by native dependencies.
+
+### Linux and macOS
+
+The build script contains conditional linker configuration for these platforms, but platform support has not been established by a published CI matrix. Install the corresponding system development packages only after checking the requirements of the specific native dependency you intend to build.
+
+## Build and inspect
+
+Clone the repository:
 
 ```bash
-# Clone and build
-git clone https://github.com/yourusername/ios-bypass-rs
+git clone https://github.com/Strong-Bee/ios-bypass-rs.git
 cd ios-bypass-rs
-
-# Set library paths (if not in default locations)
-export IREMOVALPRO_DLL_PATH=/path/to/iremovalpro.dll
-export IRA1N_DLL_PATH=/path/to/ira1n.dll
-export LIBIMOBILEDEVICE_DIR=/path/to/libimobiledevice/bin
-
-# Build
-cargo build --release
 ```
 
-### Quick Start
+Check formatting and compile the Rust project:
 
 ```bash
-# Check components
-ios-bypass doctor
-
-# List connected devices
-ios-bypass devices
-
-# Get device info
-ios-bypass info
-
-# Run full bypass (all types)
-ios-bypass bypass
-
-# Specific bypass types
-ios-bypass icloud
-ios-bypass passcode
-ios-bypass mdm
-ios-bypass file-access
-
-# Create backup
-ios-bypass backup --output backup.img
-
-# Checkm8 exploit only
-ios-bypass exploit --enter-dfu
+cargo fmt --all -- --check
+cargo check
 ```
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ios-bypass-rs (Rust)                     │
-├─────────────────────────────────────────────────────────────┤
-│  CLI          │  Bypass Orchestrator  │  Device Manager     │
-├───────────────┼───────────────────────┼─────────────────────┤
-│  iremovalpro  │      iRa1n (checkra1n)│  libimobiledevice   │
-│  (P/Invoke)   │      (Exploit + Ramdisk)│  (Device Comm)    │
-└───────────────┴───────────────────────┴─────────────────────┘
-        │                │                       │
-        ▼                ▼                       ▼
-   iremovalpro.dll   ira1n.dll + Data.dll   libimobiledevice stack
-        │                │                       │
-        └────────────────┼───────────────────────┘
-                         ▼
-              ┌─────────────────────┐
-              │   iOS Device (USB)  │
-              │  A5-A11 (checkm8)   │
-              └─────────────────────┘
-```
-
-## Configuration
-
-Create a `config.json`:
-
-```json
-{
-  "device_udid": "optional_40_char_udid",
-  "bypass_types": ["icloud", "passcode", "mdm", "fileaccess"],
-  "skip_backup": false,
-  "custom_ramdisk": "optional/path/to/ramdisk.img.gz",
-  "target_ios_version": "15.0",
-  "output_dir": "./output",
-  "verbose": true,
-  "operation_timeout": 300,
-  "retry_count": 3,
-  "force": false
-}
-```
-
-Run with:
-```bash
-ios-bypass --config config.json bypass
-```
-
-## Library Usage
-
-```rust
-use ios_bypass_rs::{
-    BypassOrchestrator, BypassConfig, BypassType,
-    IRa1n, IRa1nConfig, IRa1nBypassType,
-    DeviceManager, DeviceInfo,
-    IremovalPro, WinInfo,
-    Result,
-};
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // High-level bypass
-    let config = BypassConfig {
-        device_udid: None, // auto-detect
-        bypass_types: vec![BypassType::iCloud, BypassType::Passcode],
-        ..Default::default()
-    };
-
-    let mut orchestrator = BypassOrchestrator::new(config)?;
-    let results = orchestrator.run().await?;
-
-    for result in results {
-        println!("{:?}: {}", result.bypass_type, if result.success { "OK" } else { "FAILED" });
-    }
-
-    // Direct iRa1n usage
-    let mut ira1n = IRa1n::new(IRa1nConfig::default())?;
-    let device_info = ira1n.get_device_info().await?;
-    println!("Device: {} ({})", device_info.model, device_info.udid);
-
-    // Direct iremovalpro.dll usage
-    let iremoval = IremovalPro::new(None)?;
-    let result = iremoval.action("", "info", "{}")?;
-    println!("Info: {}", result);
-
-    Ok(())
-}
-```
-
-## Legal Notice
-
-⚠️ **IMPORTANT**: This tool is for **educational and authorized testing purposes only**.
-
-- Only use on devices you own or have explicit written permission to test
-- Bypassing activation locks on devices you don't own may be illegal in your jurisdiction
-- This tool uses the checkm8 bootrom exploit which is a hardware vulnerability
-- The authors are not responsible for any misuse or damage caused by this tool
-
-## Components Source
-
-The native libraries used by this toolkit come from:
-- **iRemoval PRO** - Commercial bypass tool (iremovalpro.dll)
-- **iRa1n** - checkra1n-based open source tool (ira1n.dll, Data.dll)
-- **libimobiledevice** - Open source iOS communication stack
-
-Ensure you have legal rights to use these components.
-
-## Development
-
-### Building
+Run the test suite:
 
 ```bash
-# Development build
-cargo build
-
-# Release build
-cargo build --release
-
-# Run tests
 cargo test
-
-# Generate shell completions
-cargo run -- generate-completions
 ```
 
-### Project Structure
+Build an optimized binary:
 
-```
-ios-bypass-rs/
-├── src/
-│   ├── main.rs           # Entry point
-│   ├── lib.rs            # Library exports
-│   ├── error.rs          # Error types
-│   ├── iremovalpro.rs    # iremovalpro.dll FFI bindings
-│   ├── ira1n.rs          # iRa1n/checkra1n FFI bindings
-│   ├── device.rs         # Device detection & management
-│   ├── bypass.rs         # High-level bypass orchestration
-│   ├── ramdisk.rs        # Ramdisk creation
-│   └── cli.rs            # Command-line interface
-├── build.rs              # Build script (native lib detection)
-├── Cargo.toml
-└── README.md
-```
-
-## Troubleshooting
-
-### "Device not found"
-- Ensure device is connected via USB
-- Trust the computer on the device
-- Install Apple Mobile Device Support (Windows)
-- Run `ios-bypass doctor` to check components
-
-### "DLL not found"
-- Set environment variables:
-  ```cmd
-  set IREMOVALPRO_DLL_PATH=C:\path\to\iremovalpro.dll
-  set IRA1N_DLL_PATH=C:\path\to\ira1n.dll
-  set LIBIMOBILEDEVICE_DIR=C:\path\to\libimobiledevice\bin
-  ```
-
-### "Exploit failed"
-- Device must be in DFU mode
-- Only A5-A11 devices supported
-- Try `--enter-dfu` flag first
-
-### "Permission denied" (Linux)
 ```bash
-sudo usermod -a -G plugdev $USER
-# Log out and back in
+cargo build --release
 ```
+
+These commands validate only the code paths and dependencies available in your environment. A successful build does not prove that a connected-device workflow is safe, complete, or compatible with a particular iPhone or iPad.
+
+## Native libraries and FFI
+
+Some modules dynamically load native libraries and/or expect platform-specific libraries at build or runtime. The build script recognizes environment variables including:
+
+- `IREMOVALPRO_DLL_PATH`
+- `IRA1N_DLL_PATH`
+- `LIBIMOBILEDEVICE_DIR`
+
+These variables are implementation details for experimental FFI integration, **not a recommendation to obtain or run third-party binaries**. Use only components you are legally entitled to use, from sources you trust, and verify their integrity. Do not commit proprietary DLLs, signing material, credentials, device backups, or other private data to this repository.
+
+## Data safety
+
+Before any operation that could modify a device:
+
+1. Confirm that you own the device or have explicit authorization from its owner.
+2. Make a verified backup using an official, supported workflow where possible.
+3. Confirm that the backup can be accessed and that you understand the restore implications.
+4. Keep personal data and device identifiers out of issue reports and public logs.
+5. Stop if the tool reports an unexpected state or an unsupported device.
+
+For Activation Lock, Apple Account, passcode, or organizational enrollment problems, use the account owner, the managing organization, or Apple's official support and recovery procedures. This project does not provide a way around those protections.
+
+## Development notes
+
+- Keep unsafe Rust and FFI code isolated and documented.
+- Validate pointers, buffer sizes, string encodings, calling conventions, and native return codes at every FFI boundary.
+- Avoid hard-coded developer-specific filesystem paths.
+- Do not claim support for a device or iOS version without reproducible tests.
+- Add automated tests for parsing, error handling, and platform-independent logic.
+- Keep proprietary or externally licensed components separate from redistributable source.
 
 ## Contributing
 
-1. Fork the repository
-2. Create feature branch
-3. Make changes with tests
-4. Submit PR
+Contributions are welcome for safe device enumeration, metadata parsing, diagnostics, documentation, portability, tests, and memory-safe FFI improvements.
+
+1. Open an issue describing the bug or proposed change.
+2. Create a focused feature branch.
+3. Include tests and reproduction details where possible.
+4. Document platform and dependency requirements.
+5. Submit a pull request for review.
+
+Do not submit changes intended to defeat Activation Lock, extract protected user data, crack passcodes, or evade organizational device management.
 
 ## License
 
-MIT OR Apache-2.0
+The Rust package declares **MIT OR Apache-2.0** in `Cargo.toml`. This declaration does not automatically apply to third-party libraries, DLLs, firmware, payloads, or other assets in the repository. Check each component's license and redistribution terms separately.
 
 ## Disclaimer
 
-This software is provided "as is" without warranty. Use at your own risk.
-The authors are not responsible for any damage, data loss, or legal issues
-arising from the use of this tool.#   i o s - b y p a s s - r s  
- 
+This is an experimental, community-maintained software project provided "as is", without warranties or guarantees. Device operations can cause data loss or render a device unusable. The maintainers are not affiliated with or endorsed by Apple. Use supported Apple recovery procedures for real-world device servicing.
