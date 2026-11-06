@@ -11,7 +11,6 @@
 
 ## Project status
 
-<BadgePlaceholder />
 
 - **Status:** Experimental / under active development.
 - **Language:** Rust (2021 edition).
